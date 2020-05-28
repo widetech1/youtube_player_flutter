@@ -10,7 +10,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle(
-      statusBarColor: Colors.blueAccent,
+      statusBarColor: Colors.black,
     ),
   );
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -56,15 +56,20 @@ class _MyHomePageState extends State<MyHomePage> {
   YoutubePlayerController _controller;
   TextEditingController _idController;
   TextEditingController _seekToController;
+  bool isBigger = false;
+  bool isLandScape = false;
 
   PlayerState _playerState;
   YoutubeMetaData _videoMetaData;
   double _volume = 100;
   bool _muted = false;
   bool _isPlayerReady = false;
+  double _biggerHeight;
+  double _deviceWidth;
+  double _deviceHeight;
 
   final List<String> _ids = [
-    'nPt8bK2gbaU',
+    'VDc62ihIXuk',
     'qiYKD1FZ5YM',
     'gQDByCdjUXw',
     'iLnmTe5Q2Qw',
@@ -97,6 +102,14 @@ class _MyHomePageState extends State<MyHomePage> {
     _playerState = PlayerState.unknown;
   }
 
+  @override
+  void didChangeDependencies() {
+    _deviceWidth = MediaQuery.of(context).size.width;
+    _deviceHeight = MediaQuery.of(context).size.height;
+    _biggerHeight = _deviceWidth * 16 / 9;
+    super.didChangeDependencies();
+  }
+
   void listener() {
     if (_isPlayerReady && mounted && !_controller.value.isFullScreen) {
       setState(() {
@@ -123,225 +136,215 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12.0),
-          child: Image.asset(
-            'assets/ypf.png',
-            fit: BoxFit.fitWidth,
-          ),
-        ),
-        title: Text(
-          'Youtube Player Flutter',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.video_library),
-            onPressed: () => Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder: (context) => VideoList(),
+    return SafeArea(
+      child: Scaffold(
+        key: _scaffoldKey,
+        body: LayoutBuilder(builder: (context, constraints) {
+          return CustomScrollView(
+            slivers: <Widget>[
+              SliverPersistentHeader(
+                delegate: YoutubeHeader(
+                    controller: _controller,
+                    height: isLandScape ? _deviceHeight : _deviceWidth,
+                    isBigger: isBigger,
+                    isLandscape: isLandScape,
+                    onReady: (() {
+                      _controller.play();
+                    })),
               ),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        children: [
-          YoutubePlayer(
-            controller: _controller,
-            showVideoProgressIndicator: true,
-            progressIndicatorColor: Colors.blueAccent,
-            topActions: <Widget>[
-              SizedBox(width: 8.0),
-              Expanded(
-                child: Text(
-                  _controller.metadata.title,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18.0,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _space,
+                      FlatButton(
+                        onPressed: () {
+                          setState(() {
+                            isBigger = !isBigger;
+                            if (isBigger) {
+                              if (_controller.metadata.videoId ==
+                                  'VDc62ihIXuk') {
+                                isLandScape = false;
+                              } else {
+                                isLandScape = true;
+                                SystemChrome.setPreferredOrientations([
+                                  DeviceOrientation.landscapeLeft,
+                                  DeviceOrientation.landscapeRight
+                                ]);
+                                SystemChrome.setEnabledSystemUIOverlays(
+                                    [SystemUiOverlay.bottom]);
+                              }
+                              // _controller
+                              //     .fitHeight(Size(_deviceWidth, _biggerHeight));
+                            } else {
+                              // _controller.fitWidth(
+                              isLandScape = false;
+                              SystemChrome.setPreferredOrientations(
+                                  [DeviceOrientation.portraitUp]);
+                              SystemChrome.setEnabledSystemUIOverlays(
+                                  SystemUiOverlay.values);
+                            }
+                          });
+                        },
+                        child: Text('TEST'),
+                      ),
+                      _space,
+                      _text('Title', _videoMetaData.title),
+                      _space,
+                      _text('Channel', _videoMetaData.author),
+                      _space,
+                      _text('Video Id', _videoMetaData.videoId),
+                      _space,
+                      Row(
+                        children: [
+                          _text(
+                            'Playback Quality',
+                            _controller.value.playbackQuality,
+                          ),
+                          Spacer(),
+                          _text(
+                            'Playback Rate',
+                            '${_controller.value.playbackRate}x  ',
+                          ),
+                        ],
+                      ),
+                      _space,
+                      TextField(
+                        enabled: _isPlayerReady,
+                        controller: _idController,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Enter youtube \<video id\> or \<link\>',
+                          fillColor: Colors.blueAccent.withAlpha(20),
+                          filled: true,
+                          hintStyle: TextStyle(
+                            fontWeight: FontWeight.w300,
+                            color: Colors.blueAccent,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.clear),
+                            onPressed: () => _idController.clear(),
+                          ),
+                        ),
+                      ),
+                      _space,
+                      Row(
+                        children: [
+                          _loadCueButton('LOAD'),
+                          SizedBox(width: 10.0),
+                          _loadCueButton('CUE'),
+                        ],
+                      ),
+                      _space,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.skip_previous),
+                            onPressed: _isPlayerReady
+                                ? () => _controller.load(_ids[(_ids.indexOf(
+                                            _controller.metadata.videoId) -
+                                        1) %
+                                    _ids.length])
+                                : null,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _controller.value.isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                            ),
+                            onPressed: _isPlayerReady
+                                ? () {
+                                    _controller.value.isPlaying
+                                        ? _controller.pause()
+                                        : _controller.play();
+                                    setState(() {});
+                                  }
+                                : null,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                                _muted ? Icons.volume_off : Icons.volume_up),
+                            onPressed: _isPlayerReady
+                                ? () {
+                                    _muted
+                                        ? _controller.unMute()
+                                        : _controller.mute();
+                                    setState(() {
+                                      _muted = !_muted;
+                                    });
+                                  }
+                                : null,
+                          ),
+                          FullScreenButton(
+                            controller: _controller,
+                            color: Colors.blueAccent,
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.skip_next),
+                            onPressed: _isPlayerReady
+                                ? () => _controller.load(_ids[(_ids.indexOf(
+                                            _controller.metadata.videoId) +
+                                        1) %
+                                    _ids.length])
+                                : null,
+                          ),
+                        ],
+                      ),
+                      _space,
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            "Volume",
+                            style: TextStyle(fontWeight: FontWeight.w300),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              inactiveColor: Colors.transparent,
+                              value: _volume,
+                              min: 0.0,
+                              max: 100.0,
+                              divisions: 10,
+                              label: '${(_volume).round()}',
+                              onChanged: _isPlayerReady
+                                  ? (value) {
+                                      setState(() {
+                                        _volume = value;
+                                      });
+                                      _controller.setVolume(_volume.round());
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      _space,
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 800),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20.0),
+                          color: _getStateColor(_playerState),
+                        ),
+                        padding: EdgeInsets.all(8.0),
+                        child: Text(
+                          _playerState.toString(),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w300,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.settings,
-                  color: Colors.white,
-                  size: 25.0,
-                ),
-                onPressed: () {
-                  _showSnackBar('Settings Tapped!');
-                },
               ),
             ],
-            onReady: () {
-              _isPlayerReady = true;
-            },
-            onEnded: (data) {
-              _controller
-                  .load(_ids[(_ids.indexOf(data.videoId) + 1) % _ids.length]);
-              _showSnackBar('Next Video Started!');
-            },
-          ),
-          Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _space,
-                _text('Title', _videoMetaData.title),
-                _space,
-                _text('Channel', _videoMetaData.author),
-                _space,
-                _text('Video Id', _videoMetaData.videoId),
-                _space,
-                Row(
-                  children: [
-                    _text(
-                      'Playback Quality',
-                      _controller.value.playbackQuality,
-                    ),
-                    Spacer(),
-                    _text(
-                      'Playback Rate',
-                      '${_controller.value.playbackRate}x  ',
-                    ),
-                  ],
-                ),
-                _space,
-                TextField(
-                  enabled: _isPlayerReady,
-                  controller: _idController,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Enter youtube \<video id\> or \<link\>',
-                    fillColor: Colors.blueAccent.withAlpha(20),
-                    filled: true,
-                    hintStyle: TextStyle(
-                      fontWeight: FontWeight.w300,
-                      color: Colors.blueAccent,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.clear),
-                      onPressed: () => _idController.clear(),
-                    ),
-                  ),
-                ),
-                _space,
-                Row(
-                  children: [
-                    _loadCueButton('LOAD'),
-                    SizedBox(width: 10.0),
-                    _loadCueButton('CUE'),
-                  ],
-                ),
-                _space,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.skip_previous),
-                      onPressed: _isPlayerReady
-                          ? () => _controller.load(_ids[
-                              (_ids.indexOf(_controller.metadata.videoId) - 1) %
-                                  _ids.length])
-                          : null,
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        _controller.value.isPlaying
-                            ? Icons.pause
-                            : Icons.play_arrow,
-                      ),
-                      onPressed: _isPlayerReady
-                          ? () {
-                              _controller.value.isPlaying
-                                  ? _controller.pause()
-                                  : _controller.play();
-                              setState(() {});
-                            }
-                          : null,
-                    ),
-                    IconButton(
-                      icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
-                      onPressed: _isPlayerReady
-                          ? () {
-                              _muted
-                                  ? _controller.unMute()
-                                  : _controller.mute();
-                              setState(() {
-                                _muted = !_muted;
-                              });
-                            }
-                          : null,
-                    ),
-                    FullScreenButton(
-                      controller: _controller,
-                      color: Colors.blueAccent,
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.skip_next),
-                      onPressed: _isPlayerReady
-                          ? () => _controller.load(_ids[
-                              (_ids.indexOf(_controller.metadata.videoId) + 1) %
-                                  _ids.length])
-                          : null,
-                    ),
-                  ],
-                ),
-                _space,
-                Row(
-                  children: <Widget>[
-                    Text(
-                      "Volume",
-                      style: TextStyle(fontWeight: FontWeight.w300),
-                    ),
-                    Expanded(
-                      child: Slider(
-                        inactiveColor: Colors.transparent,
-                        value: _volume,
-                        min: 0.0,
-                        max: 100.0,
-                        divisions: 10,
-                        label: '${(_volume).round()}',
-                        onChanged: _isPlayerReady
-                            ? (value) {
-                                setState(() {
-                                  _volume = value;
-                                });
-                                _controller.setVolume(_volume.round());
-                              }
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-                _space,
-                AnimatedContainer(
-                  duration: Duration(milliseconds: 800),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20.0),
-                    color: _getStateColor(_playerState),
-                  ),
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    _playerState.toString(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w300,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
@@ -396,11 +399,18 @@ class _MyHomePageState extends State<MyHomePage> {
         color: Colors.blueAccent,
         onPressed: _isPlayerReady
             ? () {
+                _showSnackBar('isBigger = true');
+                _controller.fitHeight(MediaQuery.of(context).size);
                 if (_idController.text.isNotEmpty) {
                   var id = YoutubePlayer.convertUrlToId(
                     _idController.text,
                   );
-                  if (action == 'LOAD') _controller.load(id);
+                  if (action == 'LOAD') {
+                    setState(() {
+                      isBigger = !isBigger;
+                    });
+                  }
+                  ;
                   if (action == 'CUE') _controller.cue(id);
                   FocusScope.of(context).requestFocus(FocusNode());
                 } else {
@@ -444,6 +454,89 @@ class _MyHomePageState extends State<MyHomePage> {
           borderRadius: BorderRadius.circular(50.0),
         ),
       ),
+    );
+  }
+}
+
+class YoutubeHeader extends SliverPersistentHeaderDelegate {
+  final List<String> _ids = [
+    'VDc62ihIXuk',
+    'qiYKD1FZ5YM',
+    'gQDByCdjUXw',
+    'iLnmTe5Q2Qw',
+    '_WoCV4c6XOE',
+    'KmzdUe0RSJo',
+    '6jZDSSZZxjQ',
+    'p2lYr3vM_1w',
+    '7QUtEmBT_-w',
+    '34_PXCzGw1M',
+  ];
+
+  final YoutubePlayerController controller;
+  final VoidCallback onReady;
+  final double height;
+  final bool isBigger;
+  final bool isLandscape;
+
+  YoutubeHeader(
+      {this.controller,
+      this.onReady,
+      this.height,
+      this.isBigger,
+      this.isLandscape});
+
+  @override
+  double get maxExtent =>
+      isBigger ? (isLandscape ? height : height * 16 / 9) : height / 16 * 9;
+
+  @override
+  double get minExtent =>
+      isBigger ? (isLandscape ? height : height * 16 / 9) : height / 16 * 9;
+
+  @override
+  bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
+    if (oldDelegate.maxExtent != maxExtent) {
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return YoutubePlayer(
+      controller: controller,
+      aspectRatio: isLandscape ? 16 / 9 : 9 / 16,
+      showVideoProgressIndicator: true,
+      progressIndicatorColor: Colors.blueAccent,
+      topActions: <Widget>[
+        SizedBox(width: 8.0),
+        Expanded(
+          child: Text(
+            controller.metadata.title,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.0,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.settings,
+            color: Colors.white,
+            size: 25.0,
+          ),
+          onPressed: () {
+            // _showSnackBar('Settings Tapped!');
+          },
+        ),
+      ],
+      onReady: onReady,
+      onEnded: (data) {
+        controller.load(_ids[(_ids.indexOf(data.videoId) + 1) % _ids.length]);
+      },
     );
   }
 }

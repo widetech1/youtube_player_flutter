@@ -204,14 +204,22 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
   @override
   void didUpdateWidget(YoutubePlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    print('isReady: ${controller.value.isReady}, initialLoad: $_initialLoad');
     oldWidget.controller?.removeListener(listener);
     widget.controller?.addListener(listener);
+    _initialLoad = true;
+    widget.controller?.value.copyWith(isReady: false);
+    print('영치기영차');
   }
 
   void listener() async {
+    print('isReady: ${controller.value.isReady}, initialLoad: $_initialLoad');
     if (controller.value.isReady && _initialLoad) {
       _initialLoad = false;
-      if (controller.flags.autoPlay) controller.play();
+      if (controller.flags.autoPlay) {
+        controller.play();
+      }
+      ;
       if (controller.flags.mute) controller.mute();
       if (widget.onReady != null) widget.onReady();
       if (controller.flags.controlsVisibleAtStart) {
